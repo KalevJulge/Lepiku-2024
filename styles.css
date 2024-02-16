@@ -1,0 +1,225 @@
+html, body, #cesiumContainer {
+    width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden;
+}
+#layerMenu {
+    position: absolute;
+    bottom: 35px; /* Adjust if necessary */
+    right: 10px;
+    background: rgba(42, 42, 42, 0.8);
+    padding: 10px;
+    border-radius: 5px;
+    max-width: 250px; /* Adjust width as needed */
+    color: white;
+    font-family: sans-serif;
+    user-select: none;
+    z-index: 10;
+}
+#layerMenu h4 {
+    margin: 10px 0;
+    font-size: 16px;
+    font-weight: normal;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    padding-bottom: 5px;
+}
+
+#layerMenu ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+#layerMenu ul li {
+    padding: 5px;
+    display: flex;
+    align-items: center;
+}
+
+#layerMenu ul label {
+    margin-left: 5px;
+    font-size: 14px;
+}
+
+.cesium-button {
+    background-color: transparent;
+    border: none;
+    color: white;
+    cursor: pointer;
+    outline: none;
+}
+
+.cesium-button:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.cesium-infoBox {
+    max-height: 80vh; /* vh unit ensures it's relative to the viewport height */
+    max-width: 80vw; 
+    overflow: auto; /* Allows for scrolling within the infobox if content overflows */
+}
+
+/* Ensure images inside infobox don't exceed the container width */
+.cesium-infoBox img {
+    max-width: 100%; /* Makes image responsive */
+    height: auto; /* Maintains aspect ratio */
+}
+
+/* Ensure tables inside infobox are responsive */
+.cesium-infoBox .cesium-infoBox-defaultTable {
+    width: 100%; /* Full width of the infobox */
+    table-layout: fixed; /* Ensures table doesn't grow beyond the infobox width */
+    word-wrap: break-word; /* Ensures content in table cells wraps and doesn't overflow */
+}
+
+.cesium-infoBox .cesium-infoBox-defaultTable th,
+.cesium-infoBox .cesium-infoBox-defaultTable td {
+    padding: 5px;
+    border: 1px solid #e1e1e1;
+    overflow: hidden; /* Hide content that overflows */
+    text-overflow: ellipsis; /* Indicate text is clipped */
+    white-space: nowrap; /* Prevents wrapping and keeps content on a single line */
+    max-width: 150px; /* Optional: sets a max width for table cells */
+}
+
+
+.modal {
+    display: none; /* Hidden by default */
+    position: fixed; /* Stay in place */
+    z-index: 1; /* Sit on top */
+    padding-top: 100px; /* Location of the box */
+    left: 0;
+    top: 0;
+    width: 100%; /* Full width */
+    height: 100%; /* Full height */
+    overflow: auto; /* Enable scroll if needed */
+    background-color: rgb(0,0,0); /* Fallback color */
+    background-color: rgba(0,0,0,0.9); /* Black w/ opacity */
+}
+
+.modal-content {
+    margin: auto;
+    display: block;
+    width: 80%;
+    max-width: 700px;
+}
+
+#caption {
+    margin: auto;
+    display: block;
+    width: 80%;
+    max-width: 700px;
+    text-align: center;
+    color: #ccc;
+    padding: 10px 0;
+    height: 150px;
+}
+
+.close {
+    color: white;
+    position: absolute;
+    top: 10px;
+    right: 25px;
+    font-size: 35px;
+    font-weight: bold;
+}
+
+.close:hover,
+.close:focus {
+    color: #999;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+
+.sketchfab-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    z-index: 1000;
+}
+
+.sketchfab-overlay-content {
+    position: relative;
+    width: 80%;
+    height: 80%;
+    margin: 5% auto;
+    padding: 20px;
+    background: #fff;
+    border-radius: 10px;
+}
+
+.sketchfab-overlay-content iframe {
+    width: 100%;
+    height: 100%;
+}
+
+.sketchfab-overlay .close {
+    position: absolute;
+    top: 10px;
+    right: 25px;
+    color: #000;
+    font-size: 35px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.sketchfab-overlay .close:hover,
+.sketchfab-overlay .close:focus {
+    color: #bbb;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+
+
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.8);
+    z-index: 1000;
+}
+
+.overlay-content {
+    position: relative;
+    width: 80%;
+    height: 80%;
+    top: 10%;
+    left: 10%;
+}
+
+#panorama {
+    width: 100%;
+    height: 100%;
+}
+
+.close-btn {
+    position: absolute;
+    top: 10px;
+    right: 25px;
+    font-size: 35px;
+    font-weight: bold;
+    color: #fff;
+    cursor: pointer;
+}
+
+.close-btn:hover {
+    color: #ccc;
+}
+
+
+.custom-bottom-text {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    text-align: center;
+    color: white; 
+    margin-bottom: 10px; 
+    font-size: 10px; 
+    z-index: 1000; 
+}

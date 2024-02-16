@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Lepiku - 2024</title>
+    <link rel="icon" type="image/png" href="images/favicon.png">
+    <script src="https://cesium.com/downloads/cesiumjs/releases/1.113/Build/Cesium/Cesium.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.7.2/proj4.js"></script>
+    <script type="text/javascript" src="https://cdn.pannellum.org/2.5/pannellum.js"></script> 
+    <link href="https://cesium.com/downloads/cesiumjs/releases/1.113/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+    <link href="styles.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.pannellum.org/2.5/pannellum.css"/>
+</head>
+
+<body>
+    <div id="layerMenu">
+        <ul id="wmsLayerList"></ul>
+        <ul id="pointCloudLayerList"></ul>
+        <ul id="modelLayerList"></ul>
+        <ul id="billboardLayerList"></ul>
+    </div>
+
+    <div id="sketchfab-overlay" class="sketchfab-overlay">
+        <div class="sketchfab-overlay-content">
+            <span class="close" onclick="closeSketchfabOverlay()">&times;</span>
+            <iframe frameborder="0" allowfullscreen></iframe>
+        </div>
+    </div>
+
+    <div id="panorama-overlay" class="overlay" style="display:none;">
+        <div class="overlay-content">
+            <div id="panorama"></div>
+            <span class="close-btn" onclick="closePanoramaOverlay()">&times;</span>
+        </div>
+    </div>
+
+    <div id="panorama" style="width: 100%; height: 400px; display: none;"></div>
+
+    <div id="cesiumContainer"></div>
+
+    <div class="custom-bottom-text">Geospatial data: Estonian Land Board 2024</div>
+
+    <script>
+        Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI2MDc0YjExMC1iNDE2LTQ5MjQtOGMwMi0zNjllNDM4MDI1OWYiLCJpZCI6MTg4NTIxLCJpYXQiOjE3MDQ3MjI2MTl9.nQB6-FmtU72qLpmszKsNGJwbkNeoINgYQHCn-XeU84Q";
+
+        // Function to create a layer item in the UI
+        function createLayerListItem(layerList, source, index, wmsLayers) {
+            const listItem = document.createElement('li');
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.id = `layer-checkbox-${index}`;
+            checkbox.checked = source.visible;
+            checkbox.className = 'cesium-button'; 
+            checkbox.onchange = () => {
+                wmsLayers[index].show = checkbox.checked;
+            };
+            listItem.appendChild(checkbox);
+            
+            const label = document.createElement('label');
+            label.htmlFor = `layer-checkbox-${index}`;
+            label.innerText = source.name;
+            listItem.appendChild(label);
+            
+            layerList.appendChild(listItem);
+        }
+
+        function closeSketchfabOverlay() {
+            const overlay = document.getElementById('sketchfab-overlay');
+            overlay.style.display = 'none';
+            // Clear the iframe src
+            overlay.querySelector('iframe').src = '';
+        }
+
+        function closePanoramaOverlay() {
+            // Hide the panorama overlay
+            document.getElementById('panorama-overlay').style.display = 'none';
+            
+            // Optionally, destroy the panorama viewer to free up resources
+            if (window.pannellum) {
+                pannellum.viewer('panorama', {}).destroy();
+            }
+        }
+
+
+// ---------------------------------------------------------------------------------------------------------------
+//------------------------------- Cesium globe -------------------------------------------------------------------
+// --------------------------------------------------------------------------------------------------------------- 
+
+        (async function() {
+            try {
+                const viewer = new Cesium.Viewer("cesiumContainer", {
+                    terrainProvider: await Cesium.CesiumTerrainProvider.fromIonAssetId(2425987),
+                    baseLayerPicker: false,
+                    timeline: false,
+                    animation: false,
+                    geocoder: false,
+                    homeButton: false,
+                    scene3DOnly: true,
+                });
+
+                viewer.scene.globe.depthTestAgainstTerrain = true;
+
+                // Define the location to zoom in on (replace with your coordinates)
+                const destination = Cesium.Cartesian3.fromDegrees(23.6267, 58.8818, 250);
+
+                // Fly the camera to the position
+                viewer.camera.flyTo({
+                    destination: destination,
+                    orientation: {
+                        heading: Cesium.Math.toRadians(0), // East, default value is 0
+                        pitch: Cesium.Math.toRadians(-45), // Downward, default value is -90
+                        roll: 0.0                          // No roll
+                    }
+                });
+
+
+// ---------------------------------------------------------------------------------------------------------------
+//------------------------------- WMS layers ---------------------------------------------------------------------
+// ---------------------------------------------------------------------------------------------------------------            
+
+                // Define WMS sources
+                const wmsSources = [
+                    {
+                        name: 'Orthophoto',
+                        url: 'https://kaart.maaamet.ee/wms/alus-geo?',
+                        layers: 'of10000,TOPOYKSUS_6569',
+                        parameters: { transparent: true, format: 'image/png' },
+                        visible: true
+                    },
+                    {
+                        name: 'Map',
+                        url: 'https://kaart.maaamet.ee/wms/alus-geo?',
+                        layers: 'pohi_vr2',
+                        parameters: { transparent: true, format: 'image/png' },
+                        visible: false
+                    },
+                    {
+                        name: 'Restricted areas',
+                        url: 'https://gsavalik.envir.ee/geoserver/kmakitsendused/wms',
+                        layers: 'kma_avalik_asjaoigus,kma_avalik_elekter,kma_avalik_gaas,kma_avalik_geodeesia,kma_avalik_kaugkyte,kma_avalik_kemikaal,kma_avalik_looduskaitse,kma_avalik_maaparandus,kma_avalik_muinsuskaitse,kma_avalik_reostusoht,kma_avalik_ressurss,kma_avalik_riigikaitse,kma_avalik_side,kma_avalik_transport,kma_avalik_veekogu,kma_avalik_veevarustus',
+                        parameters: { transparent: true, format: 'image/png' },
+                        visible: false
+                    }
+                    
+                ];
+
+                // Add WMS layers to the viewer
+                const wmsLayers = wmsSources.map(source => {
+                    const layer = viewer.imageryLayers.addImageryProvider(new Cesium.WebMapServiceImageryProvider({
+                        url: source.url,
+                        layers: source.layers,
+                        parameters: source.parameters
+                    }));
+                    layer.show = source.visible;
+                    return layer;
+                });
+
+
+                // Populate the layer control menu for WMS 
+                const wmsLayerList = document.getElementById('wmsLayerList');
+                wmsSources.forEach((source, index) => {
+                    createLayerListItem(wmsLayerList, source, index, wmsLayers);
+                });
+
+
+// ---------------------------------------------------------------------------------------------------------------
+//------------------------------- Point clouds -------------------------------------------------------------------
+// ---------------------------------------------------------------------------------------------------------------  
+
+                // Define the point clouds
+                const pointClouds = [
+                    {
+                        name: 'Vegetation',
+                        assetId: 2427595,
+                        visible: true,
+                    },
+                    /*{
+                        name: 'All',
+                        assetId: 2427570,
+                        visible: false,
+                    }*/
+                    
+                ];
+
+                // Create point cloud entities and add them to the viewer
+                const pointCloudEntities = await Promise.all(pointClouds.map(async (pointCloud) => {
+                    const tileset = await Cesium.Cesium3DTileset.fromIonAssetId(pointCloud.assetId);
+                    tileset.show = pointCloud.visible; // Set initial visibility
+                    viewer.scene.primitives.add(tileset);
+                    await viewer.zoomTo(tileset);
+
+                    // Apply a style with a specific point size
+                    tileset.style = new Cesium.Cesium3DTileStyle({
+                        pointSize: 3 
+                    });
+
+                    return tileset;
+                }));
+
+
+                // Populate the layer control menu for point clouds
+                pointClouds.forEach((pointCloud, index) => {
+                    createLayerListItem(document.getElementById('pointCloudLayerList'), pointCloud, index, pointCloudEntities);
+                });
+
+
+// ---------------------------------------------------------------------------------------------------------------
+//------------------------------- Photogrammetry models ----------------------------------------------------------
+// ---------------------------------------------------------------------------------------------------------------  
+
+                // Define the glTF models
+                const models = [
+                    {
+                        name: 'House',
+                        latitude: 58.884191,
+                        longitude: 23.626560,
+                        height: 2, 
+                        scale: 1.55,
+                        assetId: 2446824,
+                        visible: true,
+                        heading: 149,
+                        pitch: -8.5,
+                        roll: 0,
+                        properties: {
+                            Type: 'House',
+                            Age: '150 years',
+                            Height: '5 meters',
+                            SketchfabUrl: 'https://sketchfab.com/models/ae3892fac2bf4b7094058e8e51fd2165/embed',
+                        } 
+                    },
+                    {
+                        name: 'Sauna',
+                        latitude: 58.884520,
+                        longitude: 23.627470,
+                        height: 1.5, 
+                        scale: 0.7,
+                        assetId: 2446827,
+                        visible: true,
+                        heading: -25,
+                        pitch: 5,
+                        roll: -90,
+                        properties: {
+                            Type: 'Sauna',
+                            SketchfabUrl: 'https://sketchfab.com/models/640d11ea6bce4d31b91e76a8ca59b8b0/embed',
+                        } 
+                    },
+                    {
+                        name: 'Barn',
+                        latitude: 58.884115,
+                        longitude: 23.626223,
+                        height: 2.2, 
+                        scale: 0.55,
+                        assetId: 2446826,
+                        visible: true,
+                        heading: 108,
+                        pitch: 3,
+                        roll: -90,
+                        properties: {
+                            Type: 'Barn',
+                            SketchfabUrl: 'https://sketchfab.com/models/1125a6ca79d54f2ea32fcbfe182164ca/embed',
+                        } 
+                    },
+                    {
+                        name: 'Outhouse',
+                        latitude: 58.884310,
+                        longitude: 23.627400,
+                        height: 2.7, 
+                        scale: 0.22,
+                        assetId: 2446825,
+                        visible: true,
+                        heading: 210,
+                        pitch: 11,
+                        roll: -90,
+                        properties: {
+                            Type: 'Outhouse',
+                            SketchfabUrl: 'https://sketchfab.com/models/8366a5a709a5418c993df1e21f48bd9e/embed',
+                        } 
+                    },
+                    {
+                        name: 'Well',
+                        latitude: 58.884230,
+                        longitude: 23.626930,
+                        height: 3.6, 
+                        scale: 1,
+                        assetId: 2446822,
+                        visible: true,
+                        heading: 90,
+                        pitch: 90,
+                        roll: 0,
+                        properties: {
+                            Type: 'Well',
+                            SketchfabUrl: 'https://sketchfab.com/models/4dfbe037bf374ad386d867e2b543d21a/embed',
+                        } 
+                    },
+                    {
+                        name: 'Wall',
+                        latitude: 58.88437,
+                        longitude: 23.62703,
+                        height: 6.8, 
+                        scale: 0.5,
+                        assetId: 2431209,
+                        visible: true,
+                        heading: 55,
+                        pitch: 90,
+                        roll: 0,
+                        properties: {
+                            Type: 'Stone wall',
+                            SketchfabUrl: 'https://sketchfab.com/models/e930f02ef0bc44f290e0212a440b9ab9/embed',
+                        }
+                    },
+                    {
+                        name: 'Tree',
+                        latitude: 58.884670,
+                        longitude: 23.626260,
+                        height: 10.8, 
+                        scale: 1.0,
+                        assetId: 2431210,
+                        visible: true,
+                        heading: 200,
+                        pitch: 90,
+                        roll: 0,
+                        properties: {
+                            Type: 'Ash Tree',
+                            SketchfabUrl: 'https://sketchfab.com/models/5b33484557a4492e9036eaf56711e1ba/embed',
+                        } 
+                    },
+                ];
+
+                // Use an async function to handle the creation and addition of models
+                async function handleModels(models, viewer) {
+                  const modelPromises = models.map(async model => {
+                      const modelResource = await Cesium.IonResource.fromAssetId(model.assetId);
+                      const headingRadians = Cesium.Math.toRadians(model.heading);
+                      const pitchRadians = Cesium.Math.toRadians(model.pitch);
+                      const rollRadians = Cesium.Math.toRadians(model.roll);
+
+                      const position = Cesium.Cartesian3.fromDegrees(model.longitude, model.latitude, model.height);
+                      const orientation = Cesium.Transforms.headingPitchRollQuaternion(position, new Cesium.HeadingPitchRoll(headingRadians, pitchRadians, rollRadians));
+
+                      return viewer.entities.add({
+                          name: model.name,
+                          position: position,
+                          orientation: orientation,
+                          properties: model.properties,
+                          model: {
+                              uri: modelResource,
+                              scale: model.scale,
+                              heightReference: Cesium.HeightReference.RELATIVE_TO_GROUND,
+                              show: model.visible
+                          }
+                      });
+                  });
+
+                  const modelEntities = await Promise.all(modelPromises);
+
+                  // Populate the layer control menu for models (grouped under one control)
+                  const modelLayerList = document.getElementById('modelLayerList');
+                  const modelListItem = document.createElement('li');
+                  const modelCheckbox = document.createElement('input');
+                  modelCheckbox.type = 'checkbox';
+                  modelCheckbox.id = 'models-checkbox';
+                  modelCheckbox.checked = models.some(model => model.visible);
+                  modelCheckbox.className = 'cesium-button';
+                  modelCheckbox.onchange = () => {
+                      modelEntities.forEach(entity => {
+                          entity.model.show = modelCheckbox.checked;
+                      });
+                  };
+                  modelListItem.appendChild(modelCheckbox);
+
+                  const modelLabel = document.createElement('label');
+                  modelLabel.htmlFor = 'models-checkbox';
+                  modelLabel.innerText = '3D Models';
+                  modelListItem.appendChild(modelLabel);
+
+                  modelLayerList.appendChild(modelListItem);
+                  }
+
+                  await handleModels(models, viewer);
+
+// ---------------------------------------------------------------------------------------------------------------
+//------------------------------- Panoramas ----------------------------------------------------------------------
+// ---------------------------------------------------------------------------------------------------------------  
+
+                  // Define the photo locations and info
+                  const photoPoints = [
+                      {
+                          name: 'Cars',
+                          latitude: 58.883385, 
+                          longitude: 23.627402,
+                          url: 'images/cars.jpg',
+                          caption: 'Cars'
+                      },
+                      {
+                          name: 'Field',
+                          latitude: 58.883768, 
+                          longitude: 23.626631,
+                          url: 'images/field.jpg',
+                          caption: 'Field'
+                      },
+                      {
+                          name: 'Front',
+                          latitude: 58.884167, 
+                          longitude: 23.626943,
+                          url: 'images/front.jpg',
+                          caption: 'Yard'
+                      },
+                      {
+                          name: 'Back',
+                          latitude: 58.884465, 
+                          longitude: 23.626672,
+                          url: 'images/back.jpg',
+                          caption: 'Back of the house'
+                      },
+                      {
+                          name: 'Left',
+                          latitude: 58.884173, 
+                          longitude: 23.626464,
+                          url: 'images/left.jpg',
+                          caption: 'Barn and side of the house'
+                      },
+                      {
+                          name: 'Right',
+                          latitude: 58.884293, 
+                          longitude: 23.627396,
+                          url: 'images/right.jpg',
+                          caption: 'Sauna, outhouse and barn ruins'
+                      },
+                      
+                  ];
+
+                  // Array to keep track of billboard entities
+                  const billboardEntities = [];
+
+                  // Function to compute scale based on distance
+                  function computeScale(distance) {
+                      const baseSize = 16; // Base size of the billboard in pixels
+                      // Adjust scale factor as needed (this is a simple linear relationship)
+                      return baseSize / distance;
+                  }
+
+                  // Add billboards for each photo point
+                  photoPoints.forEach(point => {
+                      const billboardEntity = viewer.entities.add({
+                          name: point.name,
+                          position: Cesium.Cartesian3.fromDegrees(point.longitude, point.latitude),
+                          billboard: {
+                              image: '/images/panorama.png',
+                              heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+                              disableDepthTestDistance: Number.POSITIVE_INFINITY,
+                              show: false,
+                              scale: computeScale(Cesium.Cartesian3.distance(viewer.camera.position, Cesium.Cartesian3.fromDegrees(point.longitude, point.latitude)))
+                          },
+                          photo: point  // Store the photo info for later retrieval
+                      });
+
+                      // Update the scale whenever the camera moves
+                      viewer.camera.changed.addEventListener(() => {
+                          const distance = Cesium.Cartesian3.distance(viewer.camera.position, billboardEntity.position.getValue(Cesium.JulianDate.now()));
+                          billboardEntity.billboard.scale = computeScale(distance);
+                      });
+
+                      // Add the created billboard entity to the billboardEntities array
+                      billboardEntities.push(billboardEntity);
+                  });
+
+                  function displayPhoto(url, caption) {
+                      // Initialize Pannellum and display the panorama
+                      pannellum.viewer('panorama', {
+                          "type": "equirectangular",
+                          "panorama": url,
+                          "autoLoad": true,
+                          "showZoomCtrl": true,
+                          "title": caption
+                      });
+
+                      // Make the panorama overlay visible
+                      document.getElementById('panorama-overlay').style.display = 'block';
+                  }
+
+                  // Populate the layer control menu for billboards (grouped under one control)
+                  const billboardLayerList = document.getElementById('billboardLayerList'); // Ensure this element exists in your HTML structure
+                  const billboardListItem = document.createElement('li');
+                  const billboardCheckbox = document.createElement('input');
+                  billboardCheckbox.type = 'checkbox';
+                  billboardCheckbox.id = 'billboards-checkbox';
+                  billboardCheckbox.checked = false; // Set billboards as unchecked by default
+                  billboardCheckbox.className = 'cesium-button';
+                  billboardCheckbox.onchange = () => {
+                      billboardEntities.forEach(entity => {
+                          entity.billboard.show = billboardCheckbox.checked; // Update visibility based on the checkbox
+                      });
+                  };
+                  billboardListItem.appendChild(billboardCheckbox);
+
+                  const billboardLabel = document.createElement('label');
+                  billboardLabel.htmlFor = 'billboards-checkbox';
+                  billboardLabel.innerText = 'Panoramas';
+                  billboardListItem.appendChild(billboardLabel);
+
+                  billboardLayerList.appendChild(billboardListItem);
+
+
+              
+// ---------------------------------------------------------------------------------------------------------------
+//------------------------------- Click handler ------------------------------------------------------------------
+// ---------------------------------------------------------------------------------------------------------------  
+
+
+                  //Event click handler
+                  viewer.screenSpaceEventHandler.setInputAction((click) => {
+                      const pickedObject = viewer.scene.pick(click.position);
+                      const clickedPosition = viewer.camera.pickEllipsoid(click.position, viewer.scene.globe.ellipsoid);
+                      const restrictedAreasLayer = wmsLayers.find(layer => layer.imageryProvider.layers.includes('kma_avalik_elekter'));
+
+                      if (Cesium.defined(pickedObject) && Cesium.defined(pickedObject.id)) {
+                          const entity = pickedObject.id;
+
+                          //------------------------------------------
+                          // Case 1: Clicked entity is a model
+                          //------------------------------------------
+                          if (entity.model && models.some(model => model.name === entity.name)) {
+                                const model = models.find(model => model.name === entity.name);
+                                const sketchfabUrl = model.properties.SketchfabUrl;
+
+                                // Display the overlay with the Sketchfab iframe
+                                displaySketchfabOverlay(sketchfabUrl);
+                            }
+
+                          function displaySketchfabOverlay(url) {
+                              const overlay = document.getElementById('sketchfab-overlay');
+                              const iframe = overlay.querySelector('iframe');
+                              iframe.src = url; // Ensure the URL is the full embed URL
+
+                              overlay.style.display = 'block';
+                          }
+
+                          document.addEventListener('DOMContentLoaded', function() {
+                              const closeButton = document.querySelector('.sketchfab-overlay .close');
+                              if (closeButton) {
+                                  closeButton.addEventListener('click', closeSketchfabOverlay);
+                              }
+                          });
+
+
+                          //------------------------------------------
+                          // Case 2: Clicked entity is a photo point (billboard)
+                          //------------------------------------------
+                          if (entity.photo) {
+                              const photo = entity.photo;
+                              displayPhoto(photo.url, photo.caption); 
+                          }
+                      }
+                      
+                      //------------------------------------------
+                      // Case 3: Query WMS layer if no entity was clicked and the click was on the globe
+                      //------------------------------------------
+                      else if (Cesium.defined(clickedPosition) && !pickedObject && restrictedAreasLayer.show) {
+                          // Convert picked position to lon, lat
+                          const ellipsoid = viewer.scene.globe.ellipsoid;
+                          const cartesian = new Cesium.Cartesian3(click.position.x, click.position.y);
+                          const cartographic = ellipsoid.cartesianToCartographic(cartesian);
+                          const lon = Cesium.Math.toDegrees(cartographic.longitude);
+                          const lat = Cesium.Math.toDegrees(cartographic.latitude);
+
+                          const wmsGetFeatureInfoUrl = buildGetFeatureInfoUrl(
+                              'https://gsavalik.envir.ee/geoserver/kmakitsendused/wms', // Base URL of your WMS service
+                              'kma_avalik_asjaoigus,kma_avalik_elekter,kma_avalik_gaas,kma_avalik_geodeesia,kma_avalik_kaugkyte,kma_avalik_kemikaal,kma_avalik_looduskaitse,kma_avalik_maaparandus,kma_avalik_muinsuskaitse,kma_avalik_reostusoht,kma_avalik_ressurss,kma_avalik_riigikaitse,kma_avalik_side,kma_avalik_transport,kma_avalik_veekogu,kma_avalik_veevarustus', // Comma-separated list of WMS layers
+                              lon, 
+                              lat,
+                              click.position, 
+                              viewer
+                          );
+
+
+                          // Send the GetFeatureInfo request
+                          fetch(wmsGetFeatureInfoUrl)
+                              .then(response => response.text())
+                              .then(responseText => {
+                                  // Display the response in a more structured format
+                                  const formattedDescription = formatWMSResponse(responseText);
+                                  viewer.selectedEntity = new Cesium.Entity({
+                                      name: 'WMS Feature Information',
+                                      description: formattedDescription
+                                  });
+                              })
+                              .catch(error => console.error('Error during GetFeatureInfo request:', error));
+
+                          // Function to format WMS response and transpose the table
+                          function formatWMSResponse(responseText) {
+                              const parser = new DOMParser();
+                              const htmlDoc = parser.parseFromString(responseText, 'text/html');
+                              const table = htmlDoc.querySelector('table');
+
+                              if (table) {
+                                  // Create a new table for the transposed content
+                                  const transposedTable = document.createElement('table');
+                                  transposedTable.classList.add('cesium-infoBox-defaultTable'); // Add class for styling
+
+                                  // Get all rows from the original table
+                                  const rows = table.querySelectorAll('tr');
+                                  const rowCount = rows.length;
+                                  const colCount = rows[0] ? rows[0].children.length : 0;
+
+                                  // Iterate through each cell and switch rows with columns
+                                  for (let i = 0; i < colCount; i++) {
+                                      const newRow = transposedTable.insertRow();
+                                      for (let j = 0; j < rowCount; j++) {
+                                          const cell = newRow.insertCell();
+                                          // Safely get the text from the cell (if it exists)
+                                          cell.innerHTML = rows[j].children[i] ? rows[j].children[i].innerHTML : '';
+                                      }
+                                  }
+                                  return transposedTable.outerHTML;
+                              } else {
+                                  return 'No information available';
+                              }
+                          } 
+                      }
+                  }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
+
+                  // Function to build the GetFeatureInfo URL for the specific WMS layer
+                  function buildGetFeatureInfoUrl(baseUrl, layers, lon, lat, clickPixelPosition, viewer) {
+                      const rectangle = viewer.camera.computeViewRectangle(viewer.scene.globe.ellipsoid);
+                      const west = Cesium.Math.toDegrees(rectangle.west);
+                      const south = Cesium.Math.toDegrees(rectangle.south);
+                      const east = Cesium.Math.toDegrees(rectangle.east);
+                      const north = Cesium.Math.toDegrees(rectangle.north);
+
+                      const width = viewer.canvas.clientWidth;
+                      const height = viewer.canvas.clientHeight;
+
+                      // Construct the GetFeatureInfo URL
+                      const url = new URL(baseUrl);
+                      url.searchParams.append('service', 'WMS');
+                      url.searchParams.append('request', 'GetFeatureInfo');
+                      url.searchParams.append('layers', layers);
+                      url.searchParams.append('bbox', `${west},${south},${east},${north}`);
+                      url.searchParams.append('width', width.toString());
+                      url.searchParams.append('height', height.toString());
+                      url.searchParams.append('srs', 'EPSG:4326'); // or the appropriate CRS
+                      url.searchParams.append('query_layers', layers);
+                      url.searchParams.append('info_format', 'text/html'); // or another format if supported and preferred
+                      url.searchParams.append('i', Math.round(clickPixelPosition.x).toString());
+                      url.searchParams.append('j', Math.round(clickPixelPosition.y).toString());
+
+                      return url.toString();
+                  }
+ 
+            } catch (error) {
+                console.error(error);
+            }
+        })();
+
+
+
+    </script>
+</body>
+</html>
